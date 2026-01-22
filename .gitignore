@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
 
-# Lock file
-package-lock.json
+# Lock file (DO NOT IGNORE IN CI)
+# package-lock.json
 
 # Environment variables
 .env
