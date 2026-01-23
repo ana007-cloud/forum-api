@@ -1,4 +1,4 @@
-name: CD Test SSH
+name: Continuous Deployment
 
 on:
   push:
@@ -10,13 +10,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH test only
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            echo "SSH OK from GitHub Actions"
-            whoami
-            pwd
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+
+            cd ~/forum-api
+
+            git pull origin master
+
+            npm install --production
+
+            npm run migrate up
+
+            pm2 restart forum-api || pm2 start src/app.js --name forum-api
+          EOF
