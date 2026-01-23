@@ -22,20 +22,29 @@ jobs:
 
       - name: Test SSH connection
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'SSH connection OK'"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'SSH connection OK'"
 
       - name: Deploy to EC2
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            set -ex
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+              set -ex
 
-            cd ~/forum-api
+              cd ~/forum-api
 
-            git pull origin master
+              echo "Pulling latest code..."
+              git pull origin master
 
-            npm install --production
+              echo "Installing dependencies..."
+              npm install
 
-            npm run migrate up
+              echo "Running migrations..."
+              npm run migrate up
 
-            pm2 restart forum-api --update-env || pm2 start src/app.js --name forum-api
+              echo "Restarting app..."
+              pm2 start src/app.js --name forum-api --update-env || pm2 restart forum-api --update-env
+
+              pm2 list
+              echo "Deploy finished at $(date)"
           EOF
