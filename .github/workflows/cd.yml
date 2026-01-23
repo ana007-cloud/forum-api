@@ -10,41 +10,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Test SSH connection
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'SSH connection OK'"
+      - uses: actions/checkout@v3
 
       - name: Deploy to EC2
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-              set -ex
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
 
-              cd ~/forum-api
+            cd ~/forum-api
 
-              echo "Pulling latest code..."
-              git pull origin master
+            git pull origin master
 
-              echo "Installing dependencies..."
-              npm install
+            npm install --production
 
-              echo "Running migrations..."
-              npm run migrate up
+            npm run migrate up
 
-              echo "Restarting app..."
-              pm2 start src/app.js --name forum-api --update-env || pm2 restart forum-api --update-env
+            pm2 delete forum-api || true
+            pm2 start src/app.js --name forum-api
 
-              pm2 list
-              echo "Deploy finished at $(date)"
-          EOF
+            pm2 list
